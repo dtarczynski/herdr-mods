@@ -30,7 +30,11 @@ The triangle on a row and **Start working…** in the reader open the same launc
 
 **Agent defaults** preserves configured launch flags, including any existing bypass flags. Explicit presets replace conflicting permission flags while retaining model and other options. Codex always receives `--no-daemon`; its YOLO mode disables approvals and its sandbox. Claude/Antigravity YOLO skips permission prompts without overriding managed policies or other sandbox settings. A selected YOLO preset labels the action **Start in YOLO**. Use a compatible CLI version on the target machine; custom shell wrappers do not receive guessed flags.
 
-Permissions reset to Agent defaults for every new launch dialog and when switching agents. Additional instructions stay only in that open dialog, survive switching agents, and are appended literally to the issue task. No global agent configuration is edited. Read only/Plan asks for investigation and a proposed plan. The issue alone does not grant publishing or deployment permission.
+Open the gear beside Refresh to set the **Default agent**, **Default permissions**, and **Default additional instructions**. **Save defaults** (or **⌘Enter**) stores them locally for new launches across repositories; closing cancels edits. **Reset** clears the draft to the first installed agent, Agent defaults, and an empty prompt; save to apply it. Settings never launch an agent.
+
+New launch dialogs inherit these widget defaults. Changes made in a launch dialog apply only to that issue. Switching agents resets permissions to Agent defaults while preserving the prompt. If the saved agent is unavailable on the target machine, the dialog explains the fallback and uses Agent defaults; saved YOLO never transfers to a different agent. Additional instructions are appended literally to the issue task. No global agent configuration is edited. Read only/Plan asks for investigation and a proposed plan. The issue alone does not grant publishing or deployment permission.
+
+Widget defaults are stored by Herdr under `github-issues.launch-defaults.v1` and survive restarts.
 
 Access: runs read-only `gh repo view`, `gh issue list/view`, and `gh api graphql` queries, then Herdr `tab.new` only after agent selection. Issue content is untrusted task material. No credentials are bundled or written. Run `node --test github-issues/tests/*.test.mjs` from the repository root.
 

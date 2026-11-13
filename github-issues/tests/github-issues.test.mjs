@@ -7,14 +7,20 @@ import test from 'node:test';
 const source = readFileSync(new URL('../mods/github-issues/main.js', import.meta.url), 'utf8')
   .replace(/^import .*;\n/gm, '').replaceAll('export function ', 'function ')
   .replace('export default class GithubIssues', 'class GithubIssues')
-  + '\nglobalThis.api = { GithubIssues, agentArgv, agentKind, launchModes, issueTask, pullRequestsFromEvents, prState, prIcon };';
-function harness() {
+  + '\nglobalThis.api = { GithubIssues, launchDefaults, defaultSelection, agentArgv, agentKind, launchModes, issueTask, pullRequestsFromEvents, prState, prIcon };';
+function harness({props = {}, defaults = null, choices = []} = {}) {
   let cwd = '/repo/a';
   const calls = [], pending = [], jobs = [], overlays = [], opened = [];
-  const input = () => ({ value: () => '', set_value() {}, on() {} });
+  const writes=[],bindings=[],store=new Map([['github-issues.launch-defaults.v1',defaults]]);
+  const input = (options={}) => {
+    let value=options.value || '';
+    return { value: () => value, set_value(next) {value=next;}, on() {} };
+  };
   const scope = {
-    View: class {}, InputState: { new: input },
-    props: () => ({ overlay: 'reader' }),
+    View: class {}, InputState: { new: input }, TextareaState: {new:input},
+    props: () => ({ overlay: 'reader', ...props }),
+    shared: key=>store.get(key), setShared: (key,value)=>{writes.push({key,value});store.set(key,value);},
+    knownAgents: async ()=>choices,
     spaces: () => [{ id: 'space-a', active: true, folder: cwd }],
     focused: () => ({ pane: 'pane-a', cwd }), panes: () => [{ pane: 'pane-a', cwd }],
     exec: (command, args, options) => new Promise(resolve => pending.push({ command, args, options, resolve })),
@@ -22,10 +28,10 @@ function harness() {
     run: (name, args) => calls.push({ name, args }), closeOverlay: id => overlays.push(id), openOverlay: spec => opened.push(spec),
   };
   vm.createContext(scope); vm.runInContext(source, scope);
-  const cx = { notify() {}, timer: { every() {} }, spawn(fn) { jobs.push(fn(cx)); } };
+  const cx = { notify() {}, focus_handle:()=>({focus(){}}), bind_keys: values=>bindings.push(...values), timer: { every() {} }, spawn(fn) { jobs.push(fn(cx)); } };
   const view = new scope.api.GithubIssues();
   view.init({}, cx);
-  return { view, cx, calls, pending, jobs, overlays, opened, api: scope.api, setCwd(value) { cwd = value; } };
+  return { view, cx, calls, pending, jobs, overlays, opened, writes, store, bindings, api: scope.api, setCwd(value) { cwd = value; } };
 }
 const settle = () => new Promise(resolve => setImmediate(resolve));
 const result = value => ({ code: 0, stdout: JSON.stringify(value), stderr: '' });
@@ -243,4 +249,60 @@ test('launch shortcut shares Start readiness and submits the selected mode and l
   assert.equal(h.calls.length,1);
   assert.ok(h.calls[0].args.argv.includes('workspace-write'));
   assert.ok(h.calls[0].args.task.endsWith('First line\nSecond line'));
+});
+
+
+const installedCodex = {key:'codex',name:'Codex',installed:true,run:['codex']};
+const installedClaude = {key:'claude',name:'Claude',installed:true,run:['claude']};
+const savedDefaults = {agent:'claude',mode:'plan',prompt:'Keep scope narrow.\nRun tests.'};
+const launchProps = {number:42,launchOnly:true,issue:{number:42,title:'Task',url:repo.url+'/issues/42'},repo,target:{space:'space-a',cwd:'/repo/a'}};
+
+test('new launches inherit persisted defaults without writing them and use scoped Command Enter bindings', async () => {
+  const h=harness({props:launchProps, defaults:savedDefaults,choices:[installedCodex,installedClaude]});
+  await settle();
+  assert.equal(h.view.selectedAgent.key,'claude');assert.equal(h.view.launchMode,'plan');
+  assert.equal(h.view.extraPrompt.value(),savedDefaults.prompt);
+  assert.equal(h.bindings.length,2);
+  assert.ok(h.bindings.every(b=>b.keystroke==='cmd-enter' && b.action==='github_issue_start'));
+  assert.deepEqual(h.bindings.map(b=>b.context),['GithubIssueLauncher','GithubIssueLauncher > Input']);
+  h.view.extraPrompt.set_value('One task only');h.view.selectAgent(installedCodex,h.cx);
+  h.view.submitLaunch(h.cx);
+  assert.equal(h.calls.length,1);assert.ok(h.calls[0].args.task.endsWith('One task only'));
+  assert.equal(h.writes.length,0);assert.equal(h.store.get('github-issues.launch-defaults.v1').prompt,savedDefaults.prompt);
+});
+
+test('settings edits and reset remain drafts until Save; saving never starts an agent or reads GitHub', async () => {
+  const h=harness({props:{settingsOnly:true,target:launchProps.target},defaults:savedDefaults,choices:[installedCodex,installedClaude]});
+  await settle();
+  h.view.resetDefaults(h.cx);
+  assert.equal(h.view.launchMode,'default');assert.equal(h.view.extraPrompt.value(),'');
+  assert.equal(h.writes.length,0);assert.equal(h.overlays.length,0);
+  h.view.selectAgent(installedCodex,h.cx);h.view.launchMode='yolo';h.view.extraPrompt.set_value('Saved instructions');
+  h.view.submitLaunch(h.cx);h.view.submitLaunch(h.cx);
+  assert.equal(h.writes.length,1);assert.equal(h.writes[0].value.agent,'codex');
+  assert.equal(h.writes[0].value.mode,'yolo');assert.equal(h.writes[0].value.prompt,'Saved instructions');
+  assert.equal(h.calls.length,0);assert.equal(h.pending.length,0);assert.equal(h.overlays.length,1);
+});
+
+test('missing agent, unsupported permissions and corrupt defaults cannot transfer saved YOLO to a fallback', () => {
+  const {api}=harness();
+  const missing=api.defaultSelection([installedClaude],{agent:'codex',mode:'yolo'});
+  assert.equal(missing.agent.key,'claude');assert.equal(missing.mode,'default');assert.match(missing.notice,/unavailable/);
+  const unsupported=api.defaultSelection([installedClaude],{agent:'claude',mode:'workspace'});
+  assert.equal(unsupported.mode,'default');assert.match(unsupported.notice,/permissions/);
+  const empty=api.defaultSelection([],{agent:'codex',mode:'yolo'});
+  assert.equal(empty.agent,null);assert.equal(empty.mode,'default');
+  for(const value of [null,42,'invalid',{agent:42,mode:{},prompt:[]}]) {
+    const valid=api.launchDefaults(value);
+    assert.equal(valid.agent,null);assert.equal(valid.mode,'default');assert.equal(valid.prompt,'');
+  }
+});
+
+test('settings cannot save during discovery, without an agent, or with an invalid permission mode', async () => {
+  const h=harness({props:{settingsOnly:true,target:launchProps.target},choices:[installedCodex]});
+  h.view.submitLaunch(h.cx);assert.equal(h.writes.length,0);
+  await settle();h.view.launchMode='invalid';h.view.submitLaunch(h.cx);
+  assert.equal(h.writes.length,0);assert.match(h.view.agentError,/unavailable/);
+  const empty=harness({props:{settingsOnly:true,target:launchProps.target}});
+  await settle();empty.view.submitLaunch(empty.cx);assert.equal(empty.writes.length,0);
 });
