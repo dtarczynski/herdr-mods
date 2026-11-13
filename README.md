@@ -8,6 +8,22 @@ Three independent packages for the native [Herdr App](https://herdr.dev), tested
 | [AI Limits](ai-limits/) | Installed-agent discovery, quota usage, reset times and compact mode |
 | [Agents Context Window Progress](agents-context-window-progress/) | Context bars, working shimmer and pulsing input-needed indicator |
 
+## Screenshots
+
+Native widget screenshots with synthetic example data.
+
+### GitHub Issues
+
+![GitHub Issues list and issue reader with labels and linked pull requests](github-issues/preview.png)
+
+### AI Limits
+
+![AI Limits in normal and compact views](ai-limits/preview.png)
+
+### Agents Context Window Progress
+
+![Agent context bars for Working, Needs you, Done and Idle states](agents-context-window-progress/preview.png)
+
 ## Install
 
 Read the package's `README.md` and `RECIPE.md` first: these are trusted native mods that can run programs. Requires Herdr App and Python 3. The installer targets the standard layout tree, rejects existing mod/layout names, and clones your layout instead of replacing it. It leaves keys, accounts and preferences intact.
