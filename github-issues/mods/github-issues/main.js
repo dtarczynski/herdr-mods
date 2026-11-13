@@ -245,7 +245,12 @@ export default class GithubIssues extends View {
     }
     this.items = []; this.state = "open"; this.limit = 50; this.query = ""; this.generation = 0;
     this.input = InputState.new({ placeholder: "Search GitHub… (Enter)" });
-    this.input.on("submit", (_e, cx) => { this.query = this.input.value().trim(); this.limit = 50; this.refresh(cx); });
+    this.input.on("submit", (_e, cx) => this.applyFilters(this.state, cx));
+    this.input.on("change", (_e, cx) => {
+      // Clearing the field must also remove the last submitted server-side search.
+      if (!this.input.value().trim() && this.query) this.applyFilters(this.state, cx);
+      else cx.notify();
+    });
     if (this.detail) {
       this.target = props().target || location(); this.repo = props().repo;
       if (this.settingsOnly) this.chooseAgent(cx);
@@ -317,6 +322,16 @@ export default class GithubIssues extends View {
       }
     }
     return result;
+  }
+
+  applyFilters(state, cx) {
+    this.state = state; this.query = this.input.value().trim(); this.limit = 50;
+    this.refresh(cx);
+  }
+
+  clearSearch(cx) {
+    this.query = ""; this.input.set_value(""); this.limit = 50;
+    this.refresh(cx);
   }
 
   refresh(cx) {
@@ -567,9 +582,12 @@ export default class GithubIssues extends View {
         .child(button("refresh-issues", this.loading ? "…" : "Refresh", cx => this.refresh(cx), !this.loading)))
       .child(div().flex_none().px(12).py(8).text_size(11).text_color(t.dim).truncate().child(this.repo?.nameWithOwner || "Active terminal repository"))
       .child(h_flex().flex_none().px(10).pb(8).gap(4).children([["open", "Open"], ["closed", "Closed"], ["all", "All"]].map(([state, label]) =>
-        button(`filter-${state}`, label, cx => { this.state = state; this.limit = 50; this.refresh(cx); }, !this.loading, this.state === state))))
+        button(`filter-${state}`, label, cx => this.applyFilters(state, cx), !this.loading, this.state === state))))
       .child(div().flex_none().mx(10).mb(8).h(32).px(8).rounded(6).border_1().border_color(t.border)
         .child(Input.new(this.input).h_full().text_size(12).text_color(t.foreground)))
+      .when(Boolean(this.query), el => el.child(h_flex().flex_none().px(10).pb(8).gap(6).items_center()
+        .child(div().flex_1().min_w(0).truncate().text_size(11).text_color(t.muted).child(`Search: ${this.query}`))
+        .child(button("clear-issue-search", "Clear", cx => this.clearSearch(cx)))))
       .when(Boolean(this.error), el => el.child(v_flex().px(12).py(10).gap(6).child(div().text_color(t.ansi1).child(this.error))
         .child(div().text_size(11).text_color(t.dim).child("Check gh auth status and repository access on this machine, then refresh."))))
       .when(this.prLoading || Boolean(this.prError), el => el.child(div().px(12).pb(8).text_size(11).text_color(this.prError ? t.ansi1 : t.dim).child(this.prError || "Loading linked pull requests…")))

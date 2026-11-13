@@ -14,7 +14,8 @@ function harness({props = {}, defaults = null, choices = []} = {}) {
   const writes=[],bindings=[],store=new Map([['github-issues.launch-defaults.v1',defaults]]);
   const input = (options={}) => {
     let value=options.value || '';
-    return { value: () => value, set_value(next) {value=next;}, on() {} };
+    const handlers=new Map();
+    return { value: () => value, set_value(next) {value=next;}, on(event,handler) {handlers.set(event,handler);}, emit(event,cx) {handlers.get(event)?.({},cx);} };
   };
   const scope = {
     View: class {}, InputState: { new: input }, TextareaState: {new:input},
@@ -305,4 +306,41 @@ test('settings cannot save during discovery, without an agent, or with an invali
   assert.equal(h.writes.length,0);assert.match(h.view.agentError,/unavailable/);
   const empty=harness({props:{settingsOnly:true,target:launchProps.target}});
   await settle();empty.view.submitLaunch(empty.cx);assert.equal(empty.writes.length,0);
+});
+
+
+test('clearing the search field restores issues and discards an older empty search response', async () => {
+  const h=harness(),v=h.view;v.loadPullRequests=async()=>new Map();
+  h.pending[0].resolve(result(repo));await settle();h.pending[1].resolve(result([]));await settle();
+  v.input.set_value('no-match');v.input.emit('submit',h.cx);
+  h.pending[2].resolve(result(repo));await settle();
+  assert.ok(h.pending[3].args.includes('--search'));
+  v.input.set_value('');v.input.emit('change',h.cx);
+  assert.equal(v.query,'');
+  assert.equal(h.pending.length,5);
+  h.pending[4].resolve(result(repo));await settle();
+  assert.ok(!h.pending[5].args.includes('--search'));
+  h.pending[5].resolve(result([{number:42,title:'Visible again'}]));await settle();
+  h.pending[3].resolve(result([]));await settle();
+  assert.equal(v.items[0].number,42);assert.equal(v.loading,false);
+});
+
+test('state filters use the visible search draft, not the previous submitted query', async () => {
+  const h=harness(),v=h.view;
+  v.query='old-search';v.input.set_value('  label:bug  ');
+  v.applyFilters('closed',h.cx);
+  h.pending[1].resolve(result(repo));await settle();
+  const args=h.pending[2].args;
+  assert.equal(args[args.indexOf('--state')+1],'closed');
+  assert.equal(args[args.indexOf('--search')+1],'label:bug');
+});
+
+test('Clear search resets both field and applied query while preserving state', async () => {
+  const h=harness(),v=h.view;
+  v.state='all';v.limit=100;v.query='old-search';v.input.set_value('new draft');
+  v.clearSearch(h.cx);
+  assert.equal(v.input.value(),'');assert.equal(v.query,'');assert.equal(v.limit,50);
+  h.pending[1].resolve(result(repo));await settle();
+  const args=h.pending[2].args;
+  assert.equal(args[args.indexOf('--state')+1],'all');assert.ok(!args.includes('--search'));
 });

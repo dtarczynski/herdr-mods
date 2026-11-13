@@ -15,7 +15,7 @@ python3 install.py github-issues --layout my-issues --apply
 
 The two mods are `github-issues` and `tabs-github-issues`. Installation clones a standard layout; custom tab bars require the small manual merge described in [RECIPE.md](RECIPE.md).
 
-Search uses GitHub search syntax and submits on Enter. Open/Closed/All filters and More load pages of 50 issues. The list refreshes every minute. Linked PRs include timeline references as well as explicit connections, so a reference is not necessarily a closing PR. The reader's green macOS-style button maximizes/restores; minimize is disabled.
+Search uses GitHub search syntax and submits on Enter. Clearing the field immediately removes the applied search; the active search is shown below the field with a Clear action. State filters apply the text currently visible in the field. Open/Closed/All filters and More load pages of 50 issues. The list refreshes every minute. Linked PRs include timeline references as well as explicit connections, so a reference is not necessarily a closing PR. The reader's green macOS-style button maximizes/restores; minimize is disabled.
 
 The triangle on a row and **Start working…** in the reader open the same launch settings. Choose an agent, select permissions, optionally add a multiline prompt in **Additional instructions**, then click **Start** or press **⌘Enter**. Enter adds a new line in the prompt. The issue and your instructions open in a new tab pinned to the original repository/space. Selecting an agent or permission mode does not start work.
 
