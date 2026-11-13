@@ -7,10 +7,10 @@ import test from 'node:test';
 const source = readFileSync(new URL('../mods/github-issues/main.js', import.meta.url), 'utf8')
   .replace(/^import .*;\n/gm, '').replaceAll('export function ', 'function ')
   .replace('export default class GithubIssues', 'class GithubIssues')
-  + '\nglobalThis.api = { GithubIssues, agentArgv, issueTask, pullRequestsFromEvents, prState, prIcon };';
+  + '\nglobalThis.api = { GithubIssues, agentArgv, agentKind, launchModes, issueTask, pullRequestsFromEvents, prState, prIcon };';
 function harness() {
   let cwd = '/repo/a';
-  const calls = [], pending = [], jobs = [], overlays = [];
+  const calls = [], pending = [], jobs = [], overlays = [], opened = [];
   const input = () => ({ value: () => '', set_value() {}, on() {} });
   const scope = {
     View: class {}, InputState: { new: input },
@@ -19,13 +19,13 @@ function harness() {
     focused: () => ({ pane: 'pane-a', cwd }), panes: () => [{ pane: 'pane-a', cwd }],
     exec: (command, args, options) => new Promise(resolve => pending.push({ command, args, options, resolve })),
     nextCommand: () => new Promise(() => {}),
-    run: (name, args) => calls.push({ name, args }), closeOverlay: id => overlays.push(id),
+    run: (name, args) => calls.push({ name, args }), closeOverlay: id => overlays.push(id), openOverlay: spec => opened.push(spec),
   };
   vm.createContext(scope); vm.runInContext(source, scope);
   const cx = { notify() {}, timer: { every() {} }, spawn(fn) { jobs.push(fn(cx)); } };
   const view = new scope.api.GithubIssues();
   view.init({}, cx);
-  return { view, cx, calls, pending, jobs, overlays, api: scope.api, setCwd(value) { cwd = value; } };
+  return { view, cx, calls, pending, jobs, overlays, opened, api: scope.api, setCwd(value) { cwd = value; } };
 }
 const settle = () => new Promise(resolve => setImmediate(resolve));
 const result = value => ({ code: 0, stdout: JSON.stringify(value), stderr: '' });
@@ -142,4 +142,87 @@ test('GraphQL errors do not silently become an empty PR list', async () => {
   const rejected = assert.rejects(operation, /permission denied/);
   h.pending[1].resolve(result({ errors: [{ message: 'permission denied' }] }));
   await rejected;
+});
+
+
+test('Codex presets replace conflicting permission flags and preserve model options', () => {
+  const { api } = harness();
+  const agent = {key:'codex',run:['codex','--yolo','--full-auto','--approve-for-me',
+    '-s=danger-full-access','-anever','-c','approval_policy="never"',
+    '--config=sandbox_mode="danger-full-access"','-capprovals_reviewer="auto_review"',
+    '--model','example-model','-c','model_reasoning_effort="high"']};
+  const args=Array.from(api.agentArgv(agent,'workspace'));
+  assert.deepEqual(args,['codex','--model','example-model','-c','model_reasoning_effort="high"',
+    '--sandbox','workspace-write','--ask-for-approval','on-request','--no-daemon']);
+  assert.ok(api.agentArgv(agent).includes('--yolo'));
+  assert.deepEqual(Array.from(api.agentArgv({key:'codex',run:['codex','--yolo']},'read-only')),
+    ['codex','--sandbox','read-only','--ask-for-approval','never','--no-daemon']);
+});
+
+test('Claude and Antigravity replace bypass flags when switching to plan or edits', () => {
+  const { api }=harness();
+  assert.deepEqual(Array.from(api.agentArgv({run:['claude','--dangerously-skip-permissions','--permission-mode=bypassPermissions','--model','sonnet']},'plan')),
+    ['claude','--model','sonnet','--permission-mode','plan']);
+  assert.deepEqual(Array.from(api.agentArgv({run:['/Applications/Gemini.app/Contents/Helpers/agy','--mode','plan','--dangerously-skip-permissions','--sandbox']},'edits')),
+    ['/Applications/Gemini.app/Contents/Helpers/agy','--sandbox','--mode','accept-edits']);
+});
+
+test('presets are unavailable for unknown CLIs, wrappers and noninteractive commands', () => {
+  const { api }=harness();
+  for (const run of [['opencode'],['sh','-c','codex --yolo'],['codex','exec']]) {
+    assert.equal(api.launchModes({run}).length,1);
+    assert.throws(()=>api.agentArgv({run},'yolo'),/unavailable/);
+  }
+});
+
+test('options are inserted before the end-of-options marker', () => {
+  const { api }=harness();
+  assert.deepEqual(Array.from(api.agentArgv({run:['codex','--','literal --yolo prompt']},'workspace')),
+    ['codex','--sandbox','workspace-write','--ask-for-approval','on-request','--no-daemon','--','literal --yolo prompt']);
+});
+
+test('selecting another agent resets permissions without starting work or losing extra instructions', () => {
+  const h=harness();
+  h.view.launchMode='yolo';h.view.selectedAgent={key:'codex'};
+  h.view.extraPrompt={value:()=> 'Keep the public API stable.'};
+  h.view.selectAgent({key:'claude',run:['claude']},h.cx);
+  assert.equal(h.view.launchMode,'default');
+  assert.equal(h.view.extraPrompt.value(),'Keep the public API stable.');
+  assert.equal(h.calls.length,0);
+});
+
+test('additional prompt is passed literally with issue and selected permissions', () => {
+  const h=harness(),v=h.view;
+  v.target={space:'space-a',cwd:'/repo/a'};v.repo=repo;
+  v.issue={number:12,title:'Example',body:'Issue description',url:repo.url+'/issues/12'};
+  v.launchMode='workspace';v.extraPrompt={value:()=> 'Keep compatibility.\nDo not execute $(this) as shell text.'};
+  v.start({key:'codex',run:['codex']},h.cx);
+  const {task,argv}=h.calls[0].args;
+  assert.match(task,/Issue description/);
+  assert.ok(task.endsWith('Additional instructions from the user:\nKeep compatibility.\nDo not execute $(this) as shell text.'));
+  assert.ok(argv.includes('workspace-write'));
+  assert.ok(!argv.some(arg=>arg.includes('Keep compatibility')));
+});
+
+test('planning launch requests investigation, and invalid mode cannot start a tab', () => {
+  const h=harness(),v=h.view;
+  v.target={space:'space-a',cwd:'/repo/a'};v.repo=repo;v.issue={number:1,title:'Example'};
+  const task=h.api.issueTask(v.issue,'owner/a','Check regressions','plan');
+  assert.match(task,/Investigate the issue and propose a plan/);
+  assert.doesNotMatch(task,/Implement the solution/);
+  v.launchMode='not-a-mode';v.start({run:['codex']},h.cx);
+  assert.equal(h.calls.length,0);
+  assert.match(v.agentError,/unavailable/);
+});
+
+test('reader opens launch settings pinned to its issue, without starting an agent', () => {
+  const h=harness(),v=h.view;
+  v.detail=true;v.launchOnly=false;v.target={space:'space-a',cwd:'/repo/a'};v.repo=repo;
+  v.issue={number:42,title:'Pinned issue'};h.setCwd('/repo/b');
+  v.chooseAgent(h.cx);
+  assert.equal(h.calls.length,0);
+  assert.equal(h.opened.length,1);
+  assert.equal(h.opened[0].props.launchOnly,true);
+  assert.equal(h.opened[0].props.issue.number,42);
+  assert.equal(h.opened[0].props.target.cwd,'/repo/a');
 });

@@ -16,6 +16,8 @@ Native widget screenshots with synthetic example data.
 
 ![GitHub Issues list and issue reader with labels and linked pull requests](github-issues/preview.png)
 
+![Issue launch settings with permissions and additional instructions](github-issues/launch-settings.png)
+
 ### AI Limits
 
 ![AI Limits in normal and compact views](ai-limits/preview.png)
