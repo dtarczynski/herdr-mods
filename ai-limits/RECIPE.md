@@ -24,7 +24,7 @@ The exact `ai-limits` ID enables automatic compact sizing. The widget uses `know
 
 ## Watch out
 
-Read README.md's provider/session requirements and execution behavior before installing. Never combine Gemini CLI and Antigravity allowances. Validate fractions, accept measured zero, skip missing values. Preserve account/provider errors and do not persist tokens or raw reports in widget state. An expired Gemini token is not refreshed by the helper. The current agy probe is POSIX only. This is local-account quota, not a remote pane's quota or token-cost accounting. Keep original normal block sizes per layout.
+Read README.md's provider/session requirements and execution behavior before installing. Exclude Gemini CLI from discovery; use Antigravity for Google quota reporting. Validate fractions, accept measured zero, skip missing values. Preserve account/provider errors and do not persist tokens or raw reports in widget state. The current agy probe is POSIX only. This is local-account quota, not a remote pane's quota or token-cost accounting. Keep original normal block sizes per layout.
 
 ## Done when
 

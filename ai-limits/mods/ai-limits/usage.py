@@ -73,57 +73,10 @@ def claude():
     return {'name': 'Claude', 'windows': [r for r in rows if r]}
 
 
-def post_json(url, headers, body):
-    request = urllib.request.Request(url, data=json.dumps(body).encode(),
-                                     headers={**headers, 'Content-Type': 'application/json'})
-    with urllib.request.urlopen(request, timeout=8) as response:
-        return json.load(response)
-
-
 def fraction_window(label, remaining, reset):
     if isinstance(remaining, bool) or not isinstance(remaining, (int, float)) or not math.isfinite(remaining) or not 0 <= remaining <= 1:
         return None
     return window(label, round((1 - remaining) * 100, 4), reset)
-
-
-def gemini_windows(data):
-    rows = {}
-    for bucket in data.get('buckets') or []:
-        if not isinstance(bucket, dict) or not isinstance(bucket.get('modelId'), str):
-            continue
-        model = bucket['modelId']
-        row = fraction_window(model, bucket.get('remainingFraction'), bucket.get('resetTime'))
-        if row and (model not in rows or row['used'] > rows[model]['used']):
-            rows[model] = row
-    return list(rows.values())
-
-
-def gemini():
-    # Gemini CLI 0.66 uses GEMINI_CLI_HOME as a home override, then adds .gemini.
-    folder = Path(os.environ.get('GEMINI_CLI_HOME', str(Path.home()))) / '.gemini'
-    settings = json.loads((folder / 'settings.json').read_text())
-    auth_type = settings.get('security', {}).get('auth', {}).get('selectedType')
-    if auth_type != 'oauth-personal':
-        return {'name': 'Gemini', 'error': 'Usage requires a Gemini CLI Google login'}
-    auth = json.loads((folder / 'oauth_creds.json').read_text())
-    token = auth.get('access_token')
-    if not token:
-        return {'name': 'Gemini', 'error': 'Sign in to Gemini CLI'}
-    if isinstance(auth.get('expiry_date'), (int, float)) and auth['expiry_date'] <= time.time() * 1000:
-        return {'name': 'Gemini', 'error': 'Open Gemini CLI to renew your session'}
-    headers = {'Authorization': 'Bearer ' + token}
-    base = 'https://cloudcode-pa.googleapis.com/v1internal:'
-    project = os.environ.get('GOOGLE_CLOUD_PROJECT') or os.environ.get('GOOGLE_CLOUD_PROJECT_ID')
-    body = {'metadata': {'ideType': 'IDE_UNSPECIFIED', 'platform': 'PLATFORM_UNSPECIFIED', 'pluginType': 'GEMINI'}}
-    if project:
-        body['cloudaicompanionProject'] = project
-        body['metadata']['duetProject'] = project
-    setup = post_json(base + 'loadCodeAssist', headers, body)
-    project = setup.get('cloudaicompanionProject') or project
-    if not isinstance(project, str) or not project:
-        return {'name': 'Gemini', 'error': 'Quota unavailable for this Gemini CLI account'}
-    data = post_json(base + 'retrieveUserQuota', headers, {'project': project})
-    return {'name': 'Gemini', 'windows': gemini_windows(data)}
 
 
 def antigravity_binary():
@@ -244,7 +197,7 @@ if __name__ == '__main__':
     if '--discover' in selected:
         print(json.dumps({'providers': ['Antigravity'] if antigravity_binary() else []}))
     else:
-        readers = [('Codex', codex), ('Claude', claude), ('Gemini', gemini), ('Antigravity', antigravity)]
+        readers = [('Codex', codex), ('Claude', claude), ('Antigravity', antigravity)]
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
             providers = list(pool.map(read, [(name, fn) for name, fn in readers if name in selected]))
         print(json.dumps({'checkedAt': time.time(), 'providers': providers}, ensure_ascii=False))

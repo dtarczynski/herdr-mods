@@ -37,8 +37,8 @@ export default class AiLimits extends View {
           if (r.code === 0) extra = JSON.parse(r.stdout).providers || [];
         } catch (_) {}
         this.brandIcons = Object.fromEntries(agents.map(a => [a.name, {icon:a.icon, tint:a.tint}]));
-        const names = [...new Set([...agents.filter(a => a.installed && a.agent).map(a => /codex/i.test(a.key || a.name) ? 'Codex' : /claude/i.test(a.key || a.name) ? 'Claude' : /antigravity|^agy$/i.test(a.key || a.name) ? 'Antigravity' : /gemini/i.test(a.key || a.name) ? 'Gemini' : a.name).filter(Boolean), ...extra])];
-        this.supported = names.filter(name => ['Codex', 'Claude', 'Gemini', 'Antigravity'].includes(name));
+        const names = [...new Set([...agents.filter(a => a.installed && a.agent).map(a => /codex/i.test(a.key || a.name) ? 'Codex' : /claude/i.test(a.key || a.name) ? 'Claude' : /antigravity|^agy$/i.test(a.key || a.name) ? 'Antigravity' : /gemini/i.test(a.key || a.name) ? null : a.name).filter(Boolean), ...extra])];
+        this.supported = names.filter(name => ['Codex', 'Claude', 'Antigravity'].includes(name));
         this.other = names.filter(name => !this.supported.includes(name));
         this.discoveryError = null; this.detecting = false;
         this.refresh(cx);
@@ -80,13 +80,12 @@ export default class AiLimits extends View {
       Codex: {icon: 'icons/codex.svg', tint: false},
       Claude: {icon: 'icons/claude.svg', tint: false},
       OpenCode: {icon: 'icons/opencode.svg', tint: true},
-      Gemini: {icon: 'icons/gemini.svg', tint: true},
       Antigravity: {icon: 'icons/antigravity.svg', tint: true}
     };
     const brand = this.brandIcons?.[name] || defaults[name];
     const row = h_flex().items_center().gap(7);
     if (brand?.icon) row.child(brand.tint
-      ? svg(brand.icon).size(16).flex_none().text_color(name === 'Gemini' ? t.ansi4 : t.foreground)
+      ? svg(brand.icon).size(16).flex_none().text_color(t.foreground)
       : image(brand.icon).w(16).h(16).flex_none());
     return row.child(div().child(name));
   }

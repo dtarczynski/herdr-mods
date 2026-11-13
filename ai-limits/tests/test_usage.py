@@ -20,25 +20,9 @@ class UsageTests(unittest.TestCase):
         self.assertEqual(usage.window('test', 0, None)['used'], 0)
         self.assertEqual(usage.window('test', 100, None)['used'], 100)
 
-    def test_gemini_fraction_dedup_and_missing(self):
-        rows = usage.gemini_windows({'buckets':[
-            {'modelId':'flash', 'remainingFraction':1},
-            {'modelId':'flash', 'remainingFraction':.4, 'resetTime':'later'},
-            {'modelId':'pro', 'remainingFraction':0},
-            {'modelId':'unknown'}, {'modelId':'invalid', 'remainingFraction':True}]})
-        self.assertEqual(rows, [{'label':'flash','used':60,'reset':'later'}, {'label':'pro','used':100,'reset':None}])
-
-    def test_expired_gemini_never_sends_request_or_refreshes_token(self):
-        with tempfile.TemporaryDirectory() as folder:
-            config = Path(folder)/'.gemini'; config.mkdir()
-            (config/'settings.json').write_text(json.dumps({'security':{'auth':{'selectedType':'oauth-personal'}}}))
-            credentials=config/'oauth_creds.json'
-            credentials.write_text(json.dumps({'access_token':'fixture', 'expiry_date':1}))
-            original=credentials.read_bytes()
-            with patch.dict(os.environ, {'GEMINI_CLI_HOME':folder}), patch.object(usage,'post_json') as request:
-                self.assertIn('renew',usage.gemini()['error'])
-                request.assert_not_called()
-            self.assertEqual(credentials.read_bytes(),original)
+    def test_removed_gemini_provider_is_not_queried(self):
+        result=subprocess.run([sys.executable,str(PATH),'Gemini'],capture_output=True,text=True,check=True)
+        self.assertEqual(json.loads(result.stdout)['providers'],[])
 
     def test_antigravity_groups_are_separate_and_disabled_skipped(self):
         report={'status':'SUCCESS','command':{'name':'usage','data':{'groups':[
