@@ -32,13 +32,15 @@ The triangle on a row and **Start working…** in the reader open the same launc
 
 Open the gear beside Refresh to set the **Default agent**, **Default permissions**, and **Default additional instructions**. **Save defaults** (or **⌘Enter**) stores them locally for new launches across repositories; closing cancels edits. **Reset** clears the draft to the first installed agent, Agent defaults, and an empty prompt; save to apply it. Settings never launch an agent.
 
+![Synthetic default launch settings preview](default-settings.png)
+
 New launch dialogs inherit these widget defaults. Changes made in a launch dialog apply only to that issue. Switching agents resets permissions to Agent defaults while preserving the prompt. If the saved agent is unavailable on the target machine, the dialog explains the fallback and uses Agent defaults; saved YOLO never transfers to a different agent. Additional instructions are appended literally to the issue task. No global agent configuration is edited. Read only/Plan asks for investigation and a proposed plan. The issue alone does not grant publishing or deployment permission.
 
 Widget defaults are stored by Herdr under `github-issues.launch-defaults.v1` and survive restarts.
 
 Access: runs read-only `gh repo view`, `gh issue list/view`, and `gh api graphql` queries, then Herdr `tab.new` only after agent selection. Issue content is untrusted task material. No credentials are bundled or written. Run `node --test github-issues/tests/*.test.mjs` from the repository root.
 
-A native spinning circle marks an issue while a linked live agent reports `working`.
+A native spinning circle marks an issue while a linked live agent reports `working`. Working issues appear first in the loaded list; relative order within working and other issues is preserved.
 The link comes from the launcher's original task URL (host, repository and issue),
 including existing sessions and their child terminals; tab renames and worktrees do
 not affect it. Idle, blocked, done and exited agents do not keep the circle spinning.

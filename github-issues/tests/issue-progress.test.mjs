@@ -6,7 +6,7 @@ import test from 'node:test';
 const source = readFileSync(new URL('../mods/github-issues/main.js', import.meta.url), 'utf8')
   .replace(/^import .*;\n/gm, '').replaceAll('export function ', 'function ')
   .replace('export default class GithubIssues', 'class GithubIssues')
-  + '\nglobalThis.api = { issueTask, workingIssueUrls, workingIssueAgents, focusWorkingIssue, workingIndicator };';
+  + '\nglobalThis.api = { issueTask, workingIssueUrls, workingIssueAgents, focusWorkingIssue, workingIndicator, prioritizeWorkingIssues };';
 function harness() {
   let live = [], current = null;
   const calls = [];
@@ -82,4 +82,17 @@ test('spinner click consumes the row click and does not open issue details', () 
   let stopped=0;const cx={stop_propagation(){stopped++;}};
   handlers.down({},cx);handlers.click({},cx);
   assert.equal(stopped,2);assert.equal(h.calls.length,1);assert.equal(h.calls[0].command,'agent.focus');
+});
+
+
+test('working issues come first without changing relative order or mutating fetched results', () => {
+  const {api}=harness();
+  const issues=[1,2,3,4].map(number=>({number,url:`https://github.com/owner/a/issues/${number}`}));
+  const original=issues.map(i=>i.number);
+  const working=new Set([issues[1].url,issues[3].url]);
+  assert.deepEqual([...api.prioritizeWorkingIssues(issues,working)].map(i=>i.number),[2,4,1,3]);
+  assert.deepEqual(issues.map(i=>i.number),original);
+  assert.deepEqual([...api.prioritizeWorkingIssues(issues,new Set())].map(i=>i.number),original);
+  const mixed=[{number:5}, {...issues[1],url:issues[1].url.toUpperCase()+'/'}];
+  assert.equal(api.prioritizeWorkingIssues(mixed,working)[0].number,2);
 });

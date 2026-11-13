@@ -4,7 +4,7 @@ Three independent packages for the native [Herdr App](https://herdr.dev), tested
 
 | Package | What it adds |
 |---|---|
-| [GitHub Issues](github-issues/) | Issues beside Files/Changes, labels, linked PRs, Markdown reader and agent handoff |
+| [GitHub Issues](github-issues/) | Issues beside Files/Changes, working issues first, linked PRs, Markdown reader and configurable agent handoff |
 | [AI Limits](ai-limits/) | Installed-agent discovery, quota usage, reset times and compact mode |
 | [Agents Context Window Progress](agents-context-window-progress/) | Context bars, working shimmer and pulsing input-needed indicator |
 
@@ -14,9 +14,11 @@ Native widget screenshots with synthetic example data.
 
 ### GitHub Issues
 
-![GitHub Issues list and issue reader with labels and linked pull requests](github-issues/preview.png)
+![GitHub Issues with working issues first, labels and linked pull requests](github-issues/preview.png)
 
 ![Issue launch settings with permissions and additional instructions](github-issues/launch-settings.png)
+
+![Saved default agent, permissions and prompt in Issues settings](github-issues/default-settings.png)
 
 ### AI Limits
 

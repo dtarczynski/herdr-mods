@@ -44,6 +44,14 @@ export function workingIssueUrls(liveTerminals) {
   return new Set(workingIssueAgents(liveTerminals).keys());
 }
 
+export function prioritizeWorkingIssues(issues, working) {
+  const active = [], other = [];
+  for (const issue of issues) {
+    (working.has(issue.url?.replace(/\/$/, "").toLowerCase()) ? active : other).push(issue);
+  }
+  return [...active, ...other];
+}
+
 export function focusWorkingIssue(url) {
   // Refresh on click: an agent may have finished since this row was drawn.
   const matches = workingIssueAgents(terminals()).get(url?.replace(/\/$/, "").toLowerCase());
@@ -567,7 +575,7 @@ export default class GithubIssues extends View {
       .when(this.prLoading || Boolean(this.prError), el => el.child(div().px(12).pb(8).text_size(11).text_color(this.prError ? t.ansi1 : t.dim).child(this.prError || "Loading linked pull requests…")))
       .child(div().flex_1().min_h(0).relative()
         .child(v_flex().id("github-issue-list").absolute().inset_0().overflow_y_scroll().p(6).gap(4)
-          .children(this.items.map(issue => v_flex().id(`issue-${issue.number}`).flex_none().p(10).gap(5).rounded(7).cursor_pointer()
+          .children(prioritizeWorkingIssues(this.items, working).map(issue => v_flex().id(`issue-${issue.number}`).flex_none().p(10).gap(5).rounded(7).cursor_pointer()
             .hover(s => s.bg(t.hover)).on_click(() => { if (this.context === contextKey()) this.openIssue(issue.number); })
             .child(h_flex().gap(6).items_center()
               .when(working.has(issue.url?.replace(/\/$/, "").toLowerCase()), el => el.child(workingIndicator(issue.number, issue.url)))
