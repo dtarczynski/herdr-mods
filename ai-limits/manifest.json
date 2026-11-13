@@ -1,0 +1,8 @@
+{
+  "name": "ai-limits",
+  "mods": [
+    "ai-limits",
+    "ai-limits-settings"
+  ],
+  "testedHerdrVersion": "0.1.15"
+}
