@@ -1,6 +1,65 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, TextareaState, Textarea, Scrollbar, TextView } from "gpui-base";
-import { spaces, panes, focused, theme, exec, knownAgents, run, openOverlay, closeOverlay, props, nextCommand } from "herdr";
+import { spaces, panes, terminals, focused, theme, exec, knownAgents, run, openOverlay, closeOverlay, props, nextCommand } from "herdr";
+
+function launchedIssueUrl(terminal) {
+  // Match the launcher's task header, never titles or links quoted in the issue body.
+  for (const arg of terminal.argv || []) {
+    if (typeof arg !== "string") continue;
+    const task = /^Work on GitHub issue #([1-9]\d*) in repository (\S+\/\S+)\.\r?\n(https:\/\/\S+)(?:\s|$)/.exec(arg);
+    if (!task) continue;
+    const url = /^https:\/\/([^/?#]+)\/([^/?#]+\/[^/?#]+)\/issues\/([1-9]\d*)\/?$/.exec(task[3]);
+    if (url && url[2].toLowerCase() === task[2].toLowerCase() && url[3] === task[1])
+      return task[3].replace(/\/$/, "").toLowerCase();
+  }
+  return null;
+}
+
+export function workingIssueAgents(liveTerminals) {
+  const byAddress = new Map(liveTerminals.map(t => [t.address, t])), matches = new Map();
+  for (const terminal of liveTerminals) {
+    if (terminal.state !== "live" || terminal.status !== "working") continue;
+    let owner = terminal;
+    const visited = new Set();
+    while (owner && owner.state === "live" && !visited.has(owner.address)) {
+      visited.add(owner.address);
+      const url = launchedIssueUrl(owner);
+      if (url) {
+        const addresses = matches.get(url) || [];
+        // Prefer a working task owner over its children, regardless of terminal order.
+        if (!addresses.includes(terminal.address)) {
+          if (owner === terminal) addresses.unshift(terminal.address);
+          else addresses.push(terminal.address);
+        }
+        matches.set(url, addresses);
+        break;
+      }
+      owner = byAddress.get(owner.parent);
+    }
+  }
+  return matches;
+}
+
+export function workingIssueUrls(liveTerminals) {
+  return new Set(workingIssueAgents(liveTerminals).keys());
+}
+
+export function focusWorkingIssue(url) {
+  // Refresh on click: an agent may have finished since this row was drawn.
+  const matches = workingIssueAgents(terminals()).get(url?.replace(/\/$/, "").toLowerCase());
+  if (!matches?.length) return;
+  const current = focused()?.agent;
+  run("agent.focus", {terminal: matches.includes(current) ? current : matches[0]});
+}
+
+function workingIndicator(number, url) {
+  return div().id(`issue-working-${number}`).size(16).flex_none()
+    .cursor_pointer().rounded(4).hover(s => s.bg(theme().hover))
+    .accessibility_label("Go to working agent").tooltip("Go to working agent")
+    .on_mouse_down("left", (_event, cx) => cx.stop_propagation())
+    .on_click((_event, cx) => { cx.stop_propagation(); focusWorkingIssue(url); })
+    .child(svg("mods/github-issues/spinner.svg").size(16).text_color(theme().working).spin(900));
+}
 
 function location() {
   const f = focused(), space = spaces().find(s => s.active);
@@ -432,7 +491,7 @@ export default class GithubIssues extends View {
     if (this.launchOnly) return this.renderLauncher();
     if (this.detail) return this.renderDetail();
     if (contextKey() !== this.context) this.refresh(cx);
-    const t = theme();
+    const t = theme(), working = workingIssueUrls(terminals());
     return v_flex().id("github-issues").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background)
       .border_1().border_color(t.border).text_color(t.foreground).text_size(13)
       .child(h_flex().h(44).flex_none().px(12).gap(6).items_center().border_b(1).border_color(t.border)
@@ -451,6 +510,7 @@ export default class GithubIssues extends View {
           .children(this.items.map(issue => v_flex().id(`issue-${issue.number}`).flex_none().p(10).gap(5).rounded(7).cursor_pointer()
             .hover(s => s.bg(t.hover)).on_click(() => { if (this.context === contextKey()) this.openIssue(issue.number); })
             .child(h_flex().gap(6).items_center()
+              .when(working.has(issue.url?.replace(/\/$/, "").toLowerCase()), el => el.child(workingIndicator(issue.number, issue.url)))
               .child(div().flex_1().text_size(11).text_color(issue.state === "OPEN" ? t.ansi2 : t.ansi5).child(`#${issue.number} · ${issue.state === "OPEN" ? "Open" : "Closed"}`))
               .when(this.hoveredLaunch === issue.number, el => el.child(div().text_size(10).text_color(t.muted).child("Send to agent")))
               .child(div().id(`assign-issue-${issue.number}`).size(24).flex_none().flex().items_center().justify_center().rounded(6)

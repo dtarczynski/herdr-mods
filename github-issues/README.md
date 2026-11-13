@@ -33,3 +33,10 @@ The triangle on a row and **Start working…** in the reader open the same launc
 Permissions reset to Agent defaults for every new launch dialog and when switching agents. Additional instructions stay only in that open dialog, survive switching agents, and are appended literally to the issue task. No global agent configuration is edited. Read only/Plan asks for investigation and a proposed plan. The issue alone does not grant publishing or deployment permission.
 
 Access: runs read-only `gh repo view`, `gh issue list/view`, and `gh api graphql` queries, then Herdr `tab.new` only after agent selection. Issue content is untrusted task material. No credentials are bundled or written. Run `node --test github-issues/tests/*.test.mjs` from the repository root.
+
+A native spinning circle marks an issue while a linked live agent reports `working`.
+The link comes from the launcher's original task URL (host, repository and issue),
+including existing sessions and their child terminals; tab renames and worktrees do
+not affect it. Idle, blocked, done and exited agents do not keep the circle spinning.
+Click the spinner to focus the working agent and highlight it in Agents; working child agents are supported. The click rechecks live status, so a finished agent is not selected. Herdr updates this from live terminal state, without polling GitHub or changing labels.
+Agents started outside this launch flow are not inferred from tab names or mentioned links.
