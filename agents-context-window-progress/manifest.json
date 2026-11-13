@@ -1,0 +1,7 @@
+{
+  "name": "agents-context-window-progress",
+  "mods": [
+    "agents-context"
+  ],
+  "testedHerdrVersion": "0.1.15"
+}
