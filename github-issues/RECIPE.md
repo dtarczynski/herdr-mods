@@ -22,7 +22,7 @@ Copy `mods/github-issues` and `mods/tabs-github-issues` into the App home, witho
 
 Keep the existing `panel` and `panel-body` IDs: the tab mod controls them. For a custom tab bar, merge the GitHub panel entry from `tabs-github-issues/main.js` instead of replacing your customizations.
 
-The panel uses `spaces`, `panes`, `focused`, `exec`, `knownAgents`, overlays, `tab.new`, native inputs and Markdown. `gh` fetches issue data and paginated GraphQL timelines in batches of 20. PR artwork is Primer Octicons (included MIT license); window and launch artwork is included. The tab clone uses Herdr's installed workspace-chrome, files, changes, pane and new-menu assets.
+The panel uses `spaces`, `panes`, `focused`, `exec`, `knownAgents`, overlays, `tab.new`, native inputs and Markdown. `gh` fetches issue data and paginated GraphQL timelines in batches of 20. The tab uses the GitHub Octocat logo; it and the PR artwork are Primer Octicons (included MIT license); window and launch artwork is included. The tab clone uses Herdr's installed workspace-chrome, files, changes, pane and new-menu assets.
 
 ## Watch out
 
