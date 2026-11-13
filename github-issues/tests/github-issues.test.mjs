@@ -226,3 +226,21 @@ test('reader opens launch settings pinned to its issue, without starting an agen
   assert.equal(h.opened[0].props.issue.number,42);
   assert.equal(h.opened[0].props.target.cwd,'/repo/a');
 });
+
+test('launch shortcut shares Start readiness and submits the selected mode and literal prompt once', () => {
+  const h=harness(),v=h.view;
+  v.loading=false;v.issue={number:42,title:'Task',url:repo.url+'/issues/42'};
+  v.target={space:'space-a',cwd:'/repo/a'};v.repo=repo;
+  v.selectedAgent={key:'codex',run:['codex']};v.launchMode='workspace';
+  v.extraPrompt={value:()=> 'First line\nSecond line'};
+  for (const flag of ['loading','checking','error','agentError','started']) {
+    v[flag]=true;v.submitLaunch(h.cx);v[flag]=false;
+    assert.equal(h.calls.length,0,flag);
+  }
+  const agent=v.selectedAgent;v.selectedAgent=null;v.submitLaunch(h.cx);v.selectedAgent=agent;
+  assert.equal(h.calls.length,0);
+  v.submitLaunch(h.cx);v.submitLaunch(h.cx);
+  assert.equal(h.calls.length,1);
+  assert.ok(h.calls[0].args.argv.includes('workspace-write'));
+  assert.ok(h.calls[0].args.task.endsWith('First line\nSecond line'));
+});

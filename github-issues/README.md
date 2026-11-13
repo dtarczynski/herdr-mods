@@ -17,7 +17,7 @@ The two mods are `github-issues` and `tabs-github-issues`. Installation clones a
 
 Search uses GitHub search syntax and submits on Enter. Open/Closed/All filters and More load pages of 50 issues. The list refreshes every minute. Linked PRs include timeline references as well as explicit connections, so a reference is not necessarily a closing PR. The reader's green macOS-style button maximizes/restores; minimize is disabled.
 
-The triangle on a row and **Start working…** in the reader open the same launch settings. Choose an agent, select permissions, optionally add a multiline prompt in **Additional instructions**, then click **Start**. The issue and your instructions open in a new tab pinned to the original repository/space. Selecting an agent or permission mode does not start work.
+The triangle on a row and **Start working…** in the reader open the same launch settings. Choose an agent, select permissions, optionally add a multiline prompt in **Additional instructions**, then click **Start** or press **⌘Enter**. Enter adds a new line in the prompt. The issue and your instructions open in a new tab pinned to the original repository/space. Selecting an agent or permission mode does not start work.
 
 ![Synthetic launch settings preview](launch-settings.png)
 
