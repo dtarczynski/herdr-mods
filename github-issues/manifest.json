@@ -1,0 +1,8 @@
+{
+  "name": "github-issues",
+  "mods": [
+    "github-issues",
+    "tabs-github-issues"
+  ],
+  "testedHerdrVersion": "0.1.15"
+}
